@@ -93,27 +93,27 @@ class WorleyNoise(private val seed: Long = 0L) {
 
     /** Bijective integer hash for a 2-D cell coordinate, incorporating seed. */
     private fun hash2(x: Int, z: Int, seed: Long): Long {
-        var h = seed xor (x.toLong() * 0x9E3779B97F4A7C15L)
+        var h = seed xor (x.toLong() * -7046029254386353131L)
         h = h xor (z.toLong() * 0x6C62272E07BB0142L)
         h = h xor (h ushr 30)
         h *= -4658895341769051223L
         h = h xor (h ushr 27)
         h *= -8753723036107736191L
         h = h xor (h ushr 31)
-        return h and 0x7FFFFFFFFFFFFFFFL  // ensure positive
+        return h and Long.MAX_VALUE  // ensure positive
     }
 
     /** Bijective integer hash for a 3-D cell coordinate, incorporating seed. */
     private fun hash3(x: Int, y: Int, z: Int, seed: Long): Long {
-        var h = seed xor (x.toLong() * 0x9E3779B97F4A7C15L)
+        var h = seed xor (x.toLong() * -7046029254386353131L)
         h = h xor (y.toLong() * 0x6C62272E07BB0142L)
-        h = h xor (z.toLong() * 0xCBF29CE484222325L)
+        h = h xor (z.toLong() * -3750763034362895579L)
         h = h xor (h ushr 30)
         h *= -4658895341769051223L
         h = h xor (h ushr 27)
         h *= -8753723036107736191L
         h = h xor (h ushr 31)
-        return h and 0x7FFFFFFFFFFFFFFFL
+        return h and Long.MAX_VALUE
     }
 
     private fun fastFloor(v: Double): Int = if (v >= 0.0) v.toInt() else v.toInt() - 1
