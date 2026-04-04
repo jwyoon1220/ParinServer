@@ -37,7 +37,8 @@ class BoulderFeature : ProceduralFeature {
         var rng = seed
 
         // 1–3 overlapping boulder masses
-        val numMasses = 1 + (rng % 3L).let { rng = lcg(rng); (it and 1L).toInt() } + 1
+        rng = lcg(rng)
+        val numMasses = 1 + (rng and 0x1L).toInt() + 1   // 2 or 3
         val modifier  = unit.modifier()
 
         for (m in 0 until numMasses) {

@@ -96,7 +96,7 @@ class ThermalErosion {
                         if (nx < 0 || nx >= size || nz < 0 || nz >= size) continue
 
                         val nIdx = nz * size + nx
-                        val delta = (excesses[n] / totalExcess * totalExcess).toFloat()
+                        val delta = excesses[n].toFloat()
                         map[idx]  -= delta
                         map[nIdx] += delta
                     }

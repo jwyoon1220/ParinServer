@@ -40,8 +40,9 @@ class CustomTreeFeature : ProceduralFeature {
 
     override fun place(unit: GenerationUnit, x: Int, y: Int, z: Int, seed: Long) {
         var rng = seed
-        val modifier = unit.modifier()
-        val biomeId  = eligibleBiomes.first()   // resolved externally; here we infer from seed parity
+        val modifier   = unit.modifier()
+        // The biomeId is not threaded into place(); use a stable per-position bit from
+        // the seed to deterministically pick the tree archetype for this column.
         val isSavannah = (seed and 1L) == 0L
 
         if (isSavannah) placeTwistedAcacia(modifier, unit, x, y, z, rng)
