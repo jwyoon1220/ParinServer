@@ -154,31 +154,55 @@ class ParinChunkGenerator(
     /**
      * Build a 256×256 eroded heightmap for the region (regionX, regionZ).
      * Expensive — called at most once per region, then cached.
+     *
+     * **Chunk-boundary seam fix:** the raw noise is sampled over a padded area
+     * of (256 + 2·[EROSION_PAD])² so that erosion droplets and thermal passes
+     * near the region edges have sufficient terrain context from adjacent
+     * regions.  Only the central 256×256 window is stored in the cache.
      */
     private fun buildErodedRegion(regionX: Int, regionZ: Int): FloatArray {
-        val size   = 256
-        val map    = FloatArray(size * size)
-        val baseX  = regionX * 256.0
-        val baseZ  = regionZ * 256.0
+        val inner  = 256
+        val pad    = EROSION_PAD
+        val padded = inner + 2 * pad        // total side length of the work buffer
+        val baseX  = regionX * 256.0 - pad
+        val baseZ  = regionZ * 256.0 - pad
 
-        // Populate raw noise heightmap
-        for (z in 0 until size) {
-            for (x in 0 until size) {
-                map[z * size + x] = heightmapGen.heightAt(baseX + x, baseZ + z).toFloat()
+        // ── 1. Sample noise into padded buffer ────────────────────────────────
+        val work = FloatArray(padded * padded)
+        for (z in 0 until padded) {
+            for (x in 0 until padded) {
+                work[z * padded + x] = heightmapGen.heightAt(baseX + x, baseZ + z).toFloat()
             }
         }
 
-        // Hydraulic erosion pass
+        // ── 2. Erosion on the full padded map ─────────────────────────────────
         if (cfg.enableHydraulicErosion) {
-            hydraulicErosion.erode(map, size)
+            hydraulicErosion.erode(work, padded)
         }
-
-        // Thermal erosion pass
         if (cfg.enableThermalErosion) {
-            thermalErosion.erode(map, size)
+            thermalErosion.erode(work, padded)
         }
 
-        return map
+        // ── 3. Crop the central 256×256 window ────────────────────────────────
+        val out = FloatArray(inner * inner)
+        for (z in 0 until inner) {
+            for (x in 0 until inner) {
+                out[z * inner + x] = work[(z + pad) * padded + (x + pad)]
+            }
+        }
+        return out
+    }
+
+    companion object {
+        /**
+         * Padding added on every side of a region before erosion is applied.
+         *
+         * 32 blocks = 2 full chunks on each edge.  This gives the erosion
+         * algorithms enough context to avoid hard seam artefacts at region
+         * boundaries.  Increasing this value improves boundary continuity at
+         * the cost of more CPU work per region build.
+         */
+        private const val EROSION_PAD = 32
     }
 
     /** Sample biome for every column in the chunk (16×16 = 256 entries). */

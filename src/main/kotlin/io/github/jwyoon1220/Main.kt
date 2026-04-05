@@ -1,5 +1,9 @@
 package io.github.jwyoon1220
 
+import io.github.jwyoon1220.command.CommandRegistrar
+import io.github.jwyoon1220.config.EngineConfig
+import io.github.jwyoon1220.entity.AsyncEntityManager
+import io.github.jwyoon1220.fluid.AsyncFluidSimulator
 import io.github.jwyoon1220.generator.NoiseConfiguration
 import io.github.jwyoon1220.generator.ParinChunkGenerator
 import net.minestom.server.MinecraftServer
@@ -7,17 +11,18 @@ import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
 import net.minestom.server.instance.LightingChunk
+import org.slf4j.LoggerFactory
 
 /**
  * Main entry point for ParinServer.
  *
- * Boots Minestom with the procedural terrain engine:
- *   1. Creates a [net.minestom.server.instance.InstanceContainer] backed by
- *      [ParinChunkGenerator].
- *   2. Registers a player-join handler that spawns new players at Y = 320
- *      above the origin, letting them fall down onto the generated terrain
- *      for an immediate dramatic first impression.
- *   3. Starts the server on port 25565.
+ * Boot sequence:
+ *   1. Load `config.yml` (created from defaults on first run).
+ *   2. Initialise Minestom.
+ *   3. Register all 35+ built-in commands.
+ *   4. Create the procedural terrain instance backed by [ParinChunkGenerator].
+ *   5. Start the async entity manager and fluid simulator.
+ *   6. Bind the server on the configured IP/port.
  *
  * **Recommended JVM flags for production:**
  * ```
@@ -26,43 +31,55 @@ import net.minestom.server.instance.LightingChunk
  *   -XX:+AlwaysPreTouch
  *   --enable-preview
  * ```
- * ZGC's low-pause profile is ideal: the erosion cache may allocate large
- * FloatArrays on region-first-load, but subsequent chunk generations are
- * nearly allocation-free.
  */
+private val log = LoggerFactory.getLogger("ParinServer")
+
 fun main() {
+    // ── 1. Configuration ──────────────────────────────────────────────────────
+    EngineConfig.init()
+    val cfg = EngineConfig.get()
+
+    // ── 2. Minestom bootstrap ─────────────────────────────────────────────────
     val server = MinecraftServer.init()
 
-    // ── Configure the procedural terrain ──────────────────────────────────────
-    val cfg = NoiseConfiguration(
-        seed                    = System.getProperty("parin.seed", "42").toLong(),
-        enableHydraulicErosion  = System.getProperty("parin.erosion", "true").toBoolean(),
-        enableThermalErosion    = System.getProperty("parin.thermalErosion", "true").toBoolean(),
-        erosionDroplets         = System.getProperty("parin.droplets", "80000").toInt(),
-        terrainAmplitude        = System.getProperty("parin.amplitude", "200.0").toDouble(),
-        warpScale               = System.getProperty("parin.warpScale", "90.0").toDouble()
+    // ── 3. Commands ───────────────────────────────────────────────────────────
+    CommandRegistrar.registerAll()
+
+    // ── 4. Terrain world ──────────────────────────────────────────────────────
+    // System properties override config.yml values, falling back to config defaults.
+    val noiseCfg = NoiseConfiguration(
+        seed                   = System.getProperty("parin.seed")?.toLongOrNull()          ?: cfg.terrainSeed,
+        enableHydraulicErosion = System.getProperty("parin.erosion")?.toBoolean()          ?: cfg.hydraulicErosion,
+        enableThermalErosion   = System.getProperty("parin.thermalErosion")?.toBoolean()   ?: cfg.thermalErosion,
+        erosionDroplets        = System.getProperty("parin.droplets")?.toIntOrNull()        ?: cfg.erosionDroplets,
+        terrainAmplitude       = System.getProperty("parin.amplitude")?.toDoubleOrNull()   ?: cfg.terrainAmplitude,
+        warpScale              = System.getProperty("parin.warpScale")?.toDoubleOrNull()   ?: cfg.terrainWarpScale
     )
 
     val instanceManager = MinecraftServer.getInstanceManager()
     val world = instanceManager.createInstanceContainer()
-
-    // Use LightingChunk for correct sky/block light propagation
     world.setChunkSupplier(::LightingChunk)
-    world.setGenerator(ParinChunkGenerator(cfg))
+    world.setGenerator(ParinChunkGenerator(noiseCfg))
 
-    // ── Player lifecycle ──────────────────────────────────────────────────────
-    val globalEventHandler = MinecraftServer.getGlobalEventHandler()
+    // ── 5. Async systems ──────────────────────────────────────────────────────
+    val entityManager = AsyncEntityManager(poolSize = cfg.asyncThreadPoolSize)
+    entityManager.addInstance(world)
+    entityManager.start()
 
-    globalEventHandler.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
-        val player = event.player
-        event.spawningInstance = world
-        // Spawn high above origin — player free-falls onto the terrain,
-        // revealing the landscape gradually for maximum dramatic impact
-        player.respawnPoint = Pos(0.5, 320.0, 0.5)
-        player.gameMode = GameMode.SURVIVAL
-    }
+    val fluidSim = AsyncFluidSimulator(ticksPerSecond = cfg.fluidTickRate)
+    fluidSim.addInstance(world)
+    fluidSim.start()
 
-    // ── Start ─────────────────────────────────────────────────────────────────
-    server.start("0.0.0.0", 25565)
-    println("[ParinServer] Listening on :25565  |  seed=${cfg.seed}")
+    // ── 6. Player lifecycle ───────────────────────────────────────────────────
+    MinecraftServer.getGlobalEventHandler()
+        .addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
+            event.spawningInstance        = world
+            event.player.respawnPoint     = Pos(0.5, 320.0, 0.5)
+            event.player.gameMode         = GameMode.SURVIVAL
+        }
+
+    // ── 7. Start ──────────────────────────────────────────────────────────────
+    server.start(cfg.serverIp, cfg.serverPort)
+    log.info("ParinServer listening on {}:{}  |  seed={}",
+        cfg.serverIp, cfg.serverPort, noiseCfg.seed)
 }

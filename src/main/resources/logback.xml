@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Logback configuration for ParinServer — Fabric/Minecraft-style console output.
+
+    Pattern mirrors the log format used by Fabric's log4j2 configuration:
+      [HH:mm:ss] [Thread/LEVEL]: message
+-->
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>[%d{HH:mm:ss}] [%t/%level]: %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/latest.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- Roll daily; keep 30 days of history -->
+            <fileNamePattern>logs/%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <pattern>[%d{HH:mm:ss}] [%t/%level]: %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Minestom's own noisy internal loggers — keep at WARN to reduce noise -->
+    <logger name="net.minestom" level="WARN"/>
+
+    <!-- ParinServer — full DEBUG in dev, switch to INFO for production -->
+    <logger name="io.github.jwyoon1220" level="INFO"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>
