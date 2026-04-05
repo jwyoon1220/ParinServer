@@ -597,7 +597,8 @@ object CommandRegistrar {
     }
 
     private fun playSoundTo(sender: CommandSender, targets: List<Player>, soundName: String, volume: Float, pitch: Float) {
-        val soundKey = Key.key(soundName.removePrefix("minecraft:"))
+        // Parse the full namespaced key; if no ':' is present, default namespace is "minecraft"
+        val soundKey = if (':' in soundName) Key.key(soundName) else Key.key("minecraft", soundName)
         val sound    = Sound.sound(soundKey, Sound.Source.MASTER, volume, pitch)
         targets.forEach { it.playSound(sound) }
         sender.sendMessage(text("Played $soundName to ${targets.joinToString { it.username }}."))

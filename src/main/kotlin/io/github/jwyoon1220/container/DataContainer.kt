@@ -78,7 +78,7 @@ class DataContainer(val id: String) {
                     relZ     = p.z() - origin.z(),
                     yaw      = p.yaw(),
                     pitch    = p.pitch(),
-                    health   = (entity as? LivingEntity)?.health ?: 0f,
+                    health   = (entity as? LivingEntity)?.health ?: -1f,
                     metadata = emptyMap()
                 )
             }
@@ -102,7 +102,9 @@ class DataContainer(val id: String) {
             val entity = Entity(entityType)
             val pos = Pos(origin.x() + rec.relX, origin.y() + rec.relY, origin.z() + rec.relZ, rec.yaw, rec.pitch)
             entity.setInstance(instance, pos)
-            (entity as? LivingEntity)?.health = rec.health
+            if (entity is LivingEntity && rec.health >= 0f) {
+                entity.health = rec.health
+            }
         }
         log.info("Applied {} entities from container '{}' at {}", entityRecords.size, id, origin)
     }

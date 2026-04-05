@@ -18,8 +18,8 @@ import net.minestom.server.sound.SoundEvent
  *
  * ## Vanilla sound (no resource-pack required)
  * ```kotlin
- * SoundPlayer.playToPlayer(player, SoundEvents.ENTITY_PLAYER_LEVELUP)
- * SoundPlayer.playAt(world, Pos(0, 64, 0), SoundEvents.BLOCK_NOTE_BLOCK_HARP, volume = 2f, pitch = 1.5f)
+ * SoundPlayer.playToPlayer(player, SoundEvent.fromKey("minecraft:entity.player.levelup")!!)
+ * SoundPlayer.playAt(world, Pos(0, 64, 0), SoundEvent.fromKey("minecraft:block.note_block.harp")!!, volume = 2f, pitch = 1.5f)
  * ```
  *
  * ## Custom sound key (requires client-side resource-pack for audio data)

@@ -46,13 +46,14 @@ fun main() {
     CommandRegistrar.registerAll()
 
     // ── 4. Terrain world ──────────────────────────────────────────────────────
+    // System properties override config.yml values, falling back to config defaults.
     val noiseCfg = NoiseConfiguration(
-        seed                    = System.getProperty("parin.seed",          cfg.terrainSeed.toString()).toLong(),
-        enableHydraulicErosion  = System.getProperty("parin.erosion",       cfg.hydraulicErosion.toString()).toBoolean(),
-        enableThermalErosion    = System.getProperty("parin.thermalErosion",cfg.thermalErosion.toString()).toBoolean(),
-        erosionDroplets         = System.getProperty("parin.droplets",      cfg.erosionDroplets.toString()).toInt(),
-        terrainAmplitude        = System.getProperty("parin.amplitude",     cfg.terrainAmplitude.toString()).toDouble(),
-        warpScale               = System.getProperty("parin.warpScale",     cfg.terrainWarpScale.toString()).toDouble()
+        seed                   = System.getProperty("parin.seed")?.toLongOrNull()          ?: cfg.terrainSeed,
+        enableHydraulicErosion = System.getProperty("parin.erosion")?.toBoolean()          ?: cfg.hydraulicErosion,
+        enableThermalErosion   = System.getProperty("parin.thermalErosion")?.toBoolean()   ?: cfg.thermalErosion,
+        erosionDroplets        = System.getProperty("parin.droplets")?.toIntOrNull()        ?: cfg.erosionDroplets,
+        terrainAmplitude       = System.getProperty("parin.amplitude")?.toDoubleOrNull()   ?: cfg.terrainAmplitude,
+        warpScale              = System.getProperty("parin.warpScale")?.toDoubleOrNull()   ?: cfg.terrainWarpScale
     )
 
     val instanceManager = MinecraftServer.getInstanceManager()
