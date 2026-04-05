@@ -10,7 +10,6 @@ import java.util.concurrent.ConcurrentHashMap
 object BanList {
     private val bannedNames = ConcurrentHashMap.newKeySet<String>()
     private val bannedIps   = ConcurrentHashMap.newKeySet<String>()
-
     fun banName(name: String)    { bannedNames.add(name.lowercase()) }
     fun pardonName(name: String) { bannedNames.remove(name.lowercase()) }
     fun isBannedName(name: String) = bannedNames.contains(name.lowercase())

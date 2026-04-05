@@ -28,6 +28,7 @@ import net.minestom.server.potion.PotionEffect
 import net.minestom.server.registry.RegistryKey
 import net.minestom.server.world.Difficulty
 import java.time.Duration
+import kotlin.system.exitProcess
 
 /**
  * CommandRegistrar - registers all built-in ParinServer commands.
@@ -534,7 +535,9 @@ object CommandRegistrar {
     // /stop
     private fun stopCmd() = Command("stop").apply {
         setDefaultExecutor { sender, _ ->
-            sender.sendMessage(text("Stopping server...")); MinecraftServer.stopCleanly()
+            sender.sendMessage(text("Stopping server..."));
+            MinecraftServer.stopCleanly()
+            exitProcess(0)
         }
     }
 

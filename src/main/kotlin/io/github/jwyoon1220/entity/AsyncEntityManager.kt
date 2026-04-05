@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 /**
  * AsyncEntityManager — provides a high-performance, multithreaded framework
- * for custom entity tick logic on top of Minestom's built-in entity system.
+ * for custom entity tick loggeric on top of Minestom's built-in entity system.
  *
  * ## Design
  * - Each registered [AsyncEntityBehavior] is invoked once per game tick on
@@ -41,7 +41,7 @@ class AsyncEntityManager(
     private val poolSize: Int = Runtime.getRuntime().availableProcessors()
 ) {
 
-    private val log = LoggerFactory.getLogger(AsyncEntityManager::class.java)
+    private val logger = LoggerFactory.getLogger(AsyncEntityManager::class.java)
 
     private val scope = CoroutineScope(
         Dispatchers.Default.limitedParallelism(poolSize.coerceAtLeast(1)) + SupervisorJob()
@@ -65,43 +65,50 @@ class AsyncEntityManager(
      * Call this once after [MinecraftServer.init].
      */
     fun start() {
-        MinecraftServer.getSchedulerManager().buildShutdownTask { stop() }
-        MinecraftServer.getSchedulerManager()
-            .buildTask(Runnable {
-                val tick = tickCount.incrementAndGet()
-                instances.forEach { instance ->
-                    val entities = ObjectArrayList<Entity>(instance.entities)
-                    for (i in 0 until behaviors.size) {
-                        val behavior = behaviors[i]
-                        if (tick % behavior.tickInterval != 0L) continue
-                        scope.launch {
-                            for (j in 0 until entities.size) {
-                                val entity = entities[j]
-                                if (!behavior.matches(entity)) continue
-                                try {
-                                    behavior.tick(entity, instance, tick)
-                                } catch (ex: Exception) {
-                                    log.warn(
-                                        "Entity behavior {} threw on entity {}: {}",
-                                        behavior.javaClass.simpleName,
-                                        entity.entityType.key(),
-                                        ex.message
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            })
+        val scheduler = MinecraftServer.getSchedulerManager()
+
+        scheduler.buildShutdownTask { stop() }
+
+        scheduler.buildTask {
+            val currentTick = tickCount.incrementAndGet()
+
+            for (instance in instances) {
+                val entities = ObjectArrayList(instance.entities)
+                processBehaviors(instance, entities, currentTick)
+            }
+        }
             .repeat(TaskSchedule.nextTick())
             .schedule()
 
-        log.info("AsyncEntityManager started (pool size: $poolSize)")
+        logger.info("AsyncEntityManager started (pool size: $poolSize)")
+    }
+
+    private fun processBehaviors(instance: Instance, entities: List<Entity>, tick: Long) {
+        for (behavior in behaviors) {
+            // 해당 틱에 실행할 필요가 없는 behavior는 즉시 스킵
+            if (tick % behavior.tickInterval != 0L) continue
+
+            scope.launch {
+                entities.filter { behavior.matches(it) }
+                    .forEach { entity ->
+                        runCatching {
+                            behavior.tick(entity, instance, tick)
+                        }.onFailure { ex ->
+                            logger.warn(
+                                "Entity behavior {} threw on entity {}: {}",
+                                behavior.javaClass.simpleName,
+                                entity.entityType.key(),
+                                ex.message
+                            )
+                        }
+                    }
+            }
+        }
     }
 
     /** Gracefully cancel all in-flight coroutines. */
     fun stop() {
         scope.cancel()
-        log.info("AsyncEntityManager stopped")
+        logger.info("AsyncEntityManager stopped")
     }
 }

@@ -6,12 +6,18 @@ import io.github.jwyoon1220.entity.AsyncEntityManager
 import io.github.jwyoon1220.fluid.AsyncFluidSimulator
 import io.github.jwyoon1220.generator.NoiseConfiguration
 import io.github.jwyoon1220.generator.ParinChunkGenerator
+import net.minestom.server.Auth
 import net.minestom.server.MinecraftServer
 import net.minestom.server.coordinate.Pos
 import net.minestom.server.entity.GameMode
+import net.minestom.server.entity.PlayerSkin
 import net.minestom.server.event.player.AsyncPlayerConfigurationEvent
+import net.minestom.server.event.player.PlayerDisconnectEvent
+import net.minestom.server.event.player.PlayerSkinInitEvent
 import net.minestom.server.instance.LightingChunk
 import org.slf4j.LoggerFactory
+import java.io.File
+
 
 /**
  * Main entry point for ParinServer.
@@ -32,7 +38,11 @@ import org.slf4j.LoggerFactory
  *   --enable-preview
  * ```
  */
-private val log = LoggerFactory.getLogger("ParinServer")
+private val logger = LoggerFactory.getLogger("ParinServer")
+
+object CFiles {
+    val playerPosConfigFile = File("config/pos.yml")
+}
 
 fun main() {
     // ── 1. Configuration ──────────────────────────────────────────────────────
@@ -40,7 +50,9 @@ fun main() {
     val cfg = EngineConfig.get()
 
     // ── 2. Minestom bootstrap ─────────────────────────────────────────────────
-    val server = MinecraftServer.init()
+    val server = MinecraftServer.init(Auth.Online())
+
+    MinecraftServer.setBrandName("ParinServer")
 
     // ── 3. Commands ───────────────────────────────────────────────────────────
     CommandRegistrar.registerAll()
@@ -62,24 +74,35 @@ fun main() {
     world.setGenerator(ParinChunkGenerator(noiseCfg))
 
     // ── 5. Async systems ──────────────────────────────────────────────────────
+    logger.info("Starting EntityManager...")
     val entityManager = AsyncEntityManager(poolSize = cfg.asyncThreadPoolSize)
     entityManager.addInstance(world)
     entityManager.start()
 
+    logger.info("Starting FluidSimulator...")
     val fluidSim = AsyncFluidSimulator(ticksPerSecond = cfg.fluidTickRate)
     fluidSim.addInstance(world)
     fluidSim.start()
 
     // ── 6. Player lifecycle ───────────────────────────────────────────────────
-    MinecraftServer.getGlobalEventHandler()
-        .addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
-            event.spawningInstance        = world
-            event.player.respawnPoint     = Pos(0.5, 320.0, 0.5)
-            event.player.gameMode         = GameMode.SURVIVAL
-        }
+    val handler = MinecraftServer.getGlobalEventHandler()
+    handler.addListener(AsyncPlayerConfigurationEvent::class.java) { event ->
+        logger.info("Configuration Player {}({})", event.player.name, event.player.uuid.toString())
+        event.spawningInstance        = world
+        event.player.respawnPoint     = Pos(0.5, 320.0, 0.5)
+        event.player.gameMode         = GameMode.SURVIVAL
+    }
+    handler.addListener(PlayerSkinInitEvent::class.java, { event ->
+        val skin = PlayerSkin.fromUuid(event.player.uuid.toString())
+        event.skin = skin
+    })
+    handler.addListener(PlayerDisconnectEvent::class.java, { event ->
+
+    })
+
 
     // ── 7. Start ──────────────────────────────────────────────────────────────
     server.start(cfg.serverIp, cfg.serverPort)
-    log.info("ParinServer listening on {}:{}  |  seed={}",
+    logger.info("ParinServer listening on {}:{}  |  seed={}",
         cfg.serverIp, cfg.serverPort, noiseCfg.seed)
 }

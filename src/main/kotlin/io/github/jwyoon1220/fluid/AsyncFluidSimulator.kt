@@ -55,7 +55,7 @@ class AsyncFluidSimulator(
         LAVA( Block.LAVA,   Block.LAVA,   4, 4)
     }
 
-    private inner class FluidState(val type: FluidType) {
+    private class FluidState(val type: FluidType) {
         val levels  = Long2ByteOpenHashMap()     // packed pos → fluid level (0=source)
         val pending = LongArrayFIFOQueue()       // positions needing a spread step
     }
@@ -67,7 +67,7 @@ class AsyncFluidSimulator(
     /** Register an instance for fluid simulation. */
     fun addInstance(instance: Instance) {
         instanceStates.computeIfAbsent(instance) {
-            FluidType.values().associateWith { FluidState(it) }
+            FluidType.entries.associateWith { FluidState(it) }
         }
     }
 
@@ -103,13 +103,13 @@ class AsyncFluidSimulator(
     /** Start the periodic simulation task.  Call once after [MinecraftServer.init]. */
     fun start() {
         val interval = TaskSchedule.tick((20.0 / ticksPerSecond.coerceIn(1, 20)).toInt())
-        MinecraftServer.getSchedulerManager().buildTask(Runnable {
+        MinecraftServer.getSchedulerManager().buildTask {
             instanceStates.forEach { (instance, states) ->
                 states.values.forEach { state ->
                     scope.launch { simulateStep(instance, state) }
                 }
             }
-        }).repeat(interval).schedule()
+        }.repeat(interval).schedule()
 
         MinecraftServer.getSchedulerManager().buildShutdownTask { stop() }
         log.info("AsyncFluidSimulator started ({} ticks/s)", ticksPerSecond)
