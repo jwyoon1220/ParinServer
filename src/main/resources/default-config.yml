@@ -1,0 +1,33 @@
+# ParinServer configuration
+# This file is auto-generated on first run. Edit and restart to apply changes.
+# Set parin.config.autoReload=true as a JVM property to enable live reload.
+
+server:
+  ip: "0.0.0.0"
+  port: 25565
+  brand: "ParinServer"
+  online-mode: false
+  max-players: 100
+  view-distance: 10
+
+performance:
+  async-thread-pool-size: 8
+  max-entities: 10000
+  fluid-tick-rate: 4       # fluid simulation ticks per second (1–20)
+  entity-tick-rate: 20     # entity simulation ticks per second (1–20)
+
+physics:
+  engine: "none"           # reserved for future JBox2D integration
+  sub-steps: 4
+
+terrain:
+  seed: 42
+  amplitude: 200.0
+  warp-scale: 90.0
+  enable-hydraulic-erosion: true
+  erosion-droplets: 80000
+  enable-thermal-erosion: true
+  sea-level: 62
+
+logging:
+  level: "INFO"            # TRACE | DEBUG | INFO | WARN | ERROR
